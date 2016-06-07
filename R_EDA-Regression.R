@@ -387,7 +387,7 @@ abline(v = mine(dB, dMF)$MIC, col = "turquoise")
 
 # Which two cell types are the most highly correlated?
 
-# You can also calcualte correlations for genes -
+# You can also calculate correlations for genes -
 # Which genes are the most similar in their response?
 
 
