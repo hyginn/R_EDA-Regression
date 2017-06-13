@@ -2,19 +2,37 @@
 # Purpose:
 #     Introduction to regression analysis in biological data with R
 #
-# Version: 1.0
+# Version: 1.1
 #
-# Date:    2016  06  01
+# Date:    2017  06  01
 # Author:  Boris Steipe (boris.steipe@utoronto.ca)
-#          Some prior contributions by:
-#            Raphael Gottardo, FHCRC
-#            Sohrab Shah, UBC
-# V 1.0    First code
+##         Some prior contributions by:
+#          Raphael Gottardo, FHCRC
+#          Sohrab Shah, UBC
+
+#TOC> ==========================================================================
+#TOC>
+#TOC>   Section  Title                                            Line
+#TOC> ----------------------------------------------------------------
+#TOC>   1        Synthetic data: a linear model                     69
+#TOC>   2        Correlation coefficients                          105
+#TOC>   3        Linear rgeression                                 137
+#TOC>   4        Non linear least-squares fit                      199
+#TOC>   4.1      Synthetic data: a logistic function               209
+#TOC>   4.1.1    Calculating the fit                               247
+#TOC>   4.1.2    Evaluating the fit                                282
+#TOC>   5        Alternatives to Pearson correlation - the MIC     330
+#TOC>
+#TOC> ==========================================================================
+
+
+# V 1.1    2017 updates
+# V 1.0    First code 2016
 #
 # TODO:
 #
 #
-# == HOW TO WORK WITH THIS FILE ======================================
+# == HOW TO WORK WITH THIS FILE ================================================
 #
 #  Go through this script line by line to read and understand the
 #  code. Execute code by typing <cmd><enter>. When nothing is
@@ -32,62 +50,60 @@
 #  Google for an answer, or ask me. Don't continue if you don't
 #  understand what's going on. That's not how it works ...
 #
-#  This is YOUR file. Write your notes in here and add as many
-#  comments as you need to understand what's going on here when you
-#  come back to it in a year. That's the right way: keep code, data
-#  and notes all in one place.
+#  Once you have typed and executed the function init(), you will find a file
+#  called myScript.R in the project directory.
 #
-# ====================================================================
+#  Open it, you can place all of your code-experiments and notes into that
+#  file. This will be your "Lab Journal" for this session.
+#
+#
+# ==============================================================================
 #
 # Module 2: Regression
 #
-# ====================================================================
-
-
-# =============================================
-# Scenario
-# =============================================
+# ==============================================================================
 
 
 
-# =============================================
-# Synthetic data: linear model
-# =============================================
+# ==============================================================================
+# =    1  Synthetic data: a linear model  ======================================
+# ==============================================================================
 
-# This synthetic sample generates observations that
-# could come from measuring height and weight of
-# a human cohort.
+# This synthetic sample generates observations that could come from measuring
+# height and weight of a human cohort.
 
-# We generate random heights in an interval, then
-# calculate hypothetical weights according to a simple
-# linear equation. Finally we add "errors" to the
-# weights.
+# We generate random heights in an interval, then calculate hypothetical weights
+# according to a simple linear equation. Finally we add "errors" to the weights.
 
-# The goal of our analysis is to recover the parameters
-# of our synthetic data.
+# The goal of our analysis is to recover the parameters of our synthetic data.
+# If we fail to do this on synthetic data, we have no reason to believe we could
+# successfully recover correct parameters from real data.
 
-synthHWsamples <- function(n) {
+synthHWsamples <- function(n, hi = 1.5, ha = 2.3, q = 40) {
     set.seed(83)
     # parameters for a height vs. weight plot
-    hmin <- 1.5
-    hmax <- 2.3
-    M <- matrix(nrow=n,ncol=2)
-    # generate a column of numbers in the interval
-    M[,1] <- runif(n, hmin, hmax)
-    # generate a column of numbers with a linear model
-    M[,2] <- 40 * M[,1] + 1
-    # add some errors
+    # hi, ha:  min- and max height
+    # q:       ratio of height to weight
+
+    M <- matrix(nrow = n, ncol = 2)
+    # generate a column of heights in the interval
+    M[,1] <- runif(n, hi, ha)
+    # generate a column of weights with a linear model
+    M[,2] <- q * M[,1] + 1
+    # add noise
     M[,2] <- M[,2] + rnorm(n, 0, 15)
+
     return(M)
 }
 
-HW<-synthHWsamples(50) # generate 50 proband's heights and weights
+HW <- synthHWsamples(50) # generate 50 proband's heights and weights
 plot(HW, xlab="Height (m)", ylab="Weight (kg)") # plot with labels
 
 cor(HW[,1], HW[,2]) # calculate correlation
 
-# =============================================
-# What does a correlation coefficient "mean"?
+# ==============================================================================
+# =    2  Correlation coefficients  ============================================
+# ==============================================================================
 
 x<-rnorm(50) # 50 random deviates from a N(0,1)
 
@@ -117,7 +133,10 @@ b <- (r * sin(x*pi)) + ((1-r) * rnorm(50))
 plot(a,b); cor(a,b)
 
 
-# =============================================
+# ==============================================================================
+# =    3  Linear rgeression  ===================================================
+# ==============================================================================
+
 # After becoming more familiar with correlations,
 # we return to analyzing our data.
 
@@ -176,34 +195,28 @@ plot(HW2, xlab="Height (m)", ylab="Weight (kg)", ylim=range(HW2[,2], pp))
 matlines(HW2[,1], pc, lty=c(1,2,2), col="slategrey")
 matlines(HW2[,1], pp, lty=c(1,3,3), col="firebrick")
 
-# =============================================
-# Non linear least-squares fit
-# =============================================
+# ==============================================================================
+# =    4  Non linear least-squares fit  ========================================
+# ==============================================================================
 
-# Here is an example for a non-linear least-squares fit
-# to a set of observations, using a formula that we
-# define ourselves.
+# Here is an example for a non-linear least-squares fit to a set of
+# observations, using a formula that we define ourselves.
 
-# We simulate the risk of contracting a disease at
-# a certain age according to a logistic function
-# centred on 50 years and spread in onset approximately
+# We simulate the risk of contracting a disease at a certain age according to a
+# logistic function centred on 50 years and spread in onset approximately
 # between 0 and 100 years.
 
-# =============================================
-# Synthetic data: arbitrary model
-# =============================================
+# ==   4.1  Synthetic data: a logistic function  ===============================
 
-# We employ a strategy that can be used to generate samples
-# for any arbitrary target distribution. To achieve this
-# we generate a random, uniformly distributed variate x
-# in an interval in which we are interested. For each
-# variate, we calculate the corresponding function value f(x). Then
-# we "roll dice" whether to accept or reject the first variate:
-# We generate a second uniform variate z in the range of the
-# target function in our interval. If f(x) is smaller than z, we
-# accept x as a sample in our distribution.
+# We employ a strategy that can be used to generate samples for any arbitrary
+# target distribution. To achieve this we generate a random, uniformly
+# distributed variate x in an interval in which we are interested. For each
+# variate, we calculate the corresponding function value f(x). Then we "roll
+# dice" whether to accept or reject the first variate: We generate a second
+# uniform variate z in the range of the target function in our interval. If f(x)
+# is smaller than z, we accept x as a sample in our distribution.
 
-# Consider this code:
+# Consider this code that generates values according to a logistic function
 
 ageOfOnset <- function (n) {
     X <- c()
@@ -230,6 +243,8 @@ head(ages, 20)
 myCounts <- tabulate(ages)
 head(myCounts)
 plot(myCounts)
+
+# ===  4.1.1  Calculating the fit                            ===
 
 # How can we recover the parameters 0.1 and 50 ...
 #   1-(1/(1+exp(0.1*(age-50)))))
@@ -262,6 +277,10 @@ p <- coef(nlsFz)
 
 # plot the curve with the fitted parameters
 curve(fz(x, S=p[1], tm=p[2], B=p[3]), add=TRUE, col="firebrick", lwd=2)
+
+
+# ===  4.1.2  Evaluating the fit                             ===
+
 
 # Let us explore the set of curves that are compatible with the solution.
 # For this, we calculate a number of curves with randomly modified parameters
@@ -307,9 +326,9 @@ points(myCounts)
 
 
 
-# =============================================
-# Alternatives to Pearson correlation - the MIC
-# =============================================
+# ==============================================================================
+# =    5  Alternatives to Pearson correlation - the MIC  =======================
+# ==============================================================================
 
 # The Maximal Information Coefficient is implemented
 # in the R package Minerva. Let's try it out with
